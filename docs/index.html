@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Near-Miss Risk in Urban AV Fleets · Waymo Open Dataset v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #1d4ed8;
+      --blue-mid:    #1e40af;
+      --blue-dark:   #1e3a8a;
+      --bg:          #f8fafc;
+      --bg-alt:      #f1f5f9;
+      --surface:     #ffffff;
+      --border:      #e2e8f0;
+      --border-dark: #cbd5e1;
+      --text:        #0f172a;
+      --text-2:      #1e293b;
+      --muted:       #64748b;
+      --mono-bg:     #0f172a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.97);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .nav-brand {
+      font-weight: 600; font-size: 0.875rem;
+      color: var(--text-2); letter-spacing: -0.2px;
+    }
+    .nav-brand em { color: var(--blue); font-style: normal; }
+    .nav-section { display: flex; gap: 2rem; }
+    .nav-section a {
+      text-decoration: none; color: var(--muted); font-size: 0.8125rem;
+      font-weight: 500; transition: color 0.15s; letter-spacing: -0.1px;
+    }
+    .nav-section a:hover { color: var(--text); }
+    .nav-links { display: flex; gap: 0.625rem; align-items: center; }
+    .nav-links a {
+      text-decoration: none; font-size: 0.8125rem; font-weight: 500;
+      padding: 0.375rem 0.875rem; border-radius: 5px; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .nav-links a.secondary {
+      color: var(--muted); border: 1px solid var(--border);
+    }
+    .nav-links a.secondary:hover { color: var(--text); background: var(--bg); }
+    .nav-links a.primary { background: var(--mono-bg); color: white; }
+    .nav-links a.primary:hover { background: var(--blue-dark); }
+
+    /* ── HERO ── */
+    .hero {
+      background: var(--mono-bg);
+      color: white;
+      padding: 5.5rem 2rem 5rem;
+      text-align: center;
+    }
+    .hero-kicker {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem; letter-spacing: 2.5px; text-transform: uppercase;
+      color: #475569; margin-bottom: 2rem;
+    }
+    .hero h1 {
+      font-size: clamp(1.75rem, 3.5vw, 2.6rem);
+      font-weight: 700; line-height: 1.18; letter-spacing: -0.5px;
+      max-width: 780px; margin: 0 auto 1.125rem; color: #f1f5f9;
+    }
+    .hero-subtitle {
+      font-size: 0.9375rem; color: #64748b; max-width: 580px;
+      margin: 0 auto; font-weight: 400; line-height: 1.7;
+    }
+    .hero-stats {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem; color: #334155;
+      margin: 2rem auto 2.5rem;
+      max-width: 680px; letter-spacing: 0.5px;
+    }
+    .hero-stats span { color: #475569; margin: 0 0.75rem; }
+    .hero-buttons { display: flex; gap: 0.875rem; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.6rem 1.25rem; border-radius: 6px;
+      font-size: 0.875rem; font-weight: 500; text-decoration: none;
+      transition: all 0.15s; letter-spacing: -0.1px;
+    }
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .btn-light { background: white; color: var(--mono-bg); }
+    .btn-light:hover { background: #f1f5f9; }
+    .btn-ghost { background: transparent; color: #64748b; border: 1px solid #1e293b; }
+    .btn-ghost:hover { border-color: #334155; color: #94a3b8; }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      background: #1e293b;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      text-align: center;
+      border-bottom: 1px solid #0f172a;
+    }
+    .stat-item {
+      padding: 1.25rem 0.75rem;
+      border-right: 1px solid #273344;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-value {
+      font-size: 1.5rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: #93c5fd; line-height: 1; letter-spacing: -0.5px;
+    }
+    .stat-label {
+      font-size: 0.625rem; color: #475569; margin-top: 0.3rem;
+      text-transform: uppercase; letter-spacing: 1px; line-height: 1.35;
+    }
+
+    /* ── SECTION WRAPPERS ── */
+    .section-outer { padding: 5rem 2rem; }
+    .section-outer.alt { background: var(--bg-alt); }
+    .section-inner { max-width: 1120px; margin: 0 auto; }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; font-weight: 500; letter-spacing: 2.5px;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 0.5rem;
+    }
+    h2 {
+      font-size: 1.7rem; font-weight: 700; color: var(--text);
+      letter-spacing: -0.4px; margin-bottom: 0.875rem; line-height: 1.2;
+    }
+    h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.375rem; line-height: 1.3; }
+    .lead {
+      font-size: 0.9625rem; color: var(--muted);
+      max-width: 680px; margin-bottom: 2.5rem; line-height: 1.7;
+    }
+    hr.divider { border: none; border-top: 1px solid var(--border); }
+
+    /* ── ABSTRACT ── */
+    .abstract-block {
+      border-left: 3px solid var(--blue);
+      padding: 1.5rem 2rem 1.5rem 1.75rem;
+      background: white;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 0;
+      font-size: 0.875rem;
+      line-height: 1.8;
+      color: #334155;
+      max-width: 880px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--blue);
+    }
+    .abstract-block p { margin-bottom: 0.875rem; }
+    .abstract-block p:last-child { margin-bottom: 0; }
+    .abstract-block strong { color: var(--text); font-weight: 600; }
+    .abstract-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; font-weight: 600; color: var(--blue);
+      letter-spacing: 1.5px; text-transform: uppercase;
+    }
+
+    /* ── CAUSAL BLOCK ── */
+    .causal-block {
+      background: white;
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--blue);
+      border-radius: 8px;
+      padding: 2rem 2.5rem;
+      display: grid;
+      grid-template-columns: 1fr 210px;
+      gap: 3rem; align-items: start;
+    }
+    .causal-block h3 {
+      font-size: 1.05rem; color: var(--text); margin-bottom: 0.875rem;
+      font-weight: 600;
+    }
+    .causal-block p { font-size: 0.865rem; color: #475569; line-height: 1.8; }
+    .causal-block p + p { margin-top: 0.875rem; }
+    .causal-stats { display: flex; flex-direction: column; gap: 0; }
+    .causal-stat-item {
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .causal-stat-item:first-child { padding-top: 0; }
+    .causal-stat-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .causal-stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.3rem; font-weight: 700;
+      color: var(--text); display: block; line-height: 1;
+      letter-spacing: -0.5px;
+    }
+    .causal-stat-label {
+      font-size: 0.645rem; color: var(--muted);
+      margin-top: 0.25rem;
+      text-transform: uppercase; letter-spacing: 0.75px; line-height: 1.4;
+      display: block;
+    }
+
+    /* ── RESULT CARDS ── */
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1rem;
+    }
+    .result-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.5rem;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .result-card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border-color: var(--border-dark);
+    }
+    .result-header {
+      display: flex; align-items: center; gap: 0.625rem;
+      margin-bottom: 0.625rem;
+    }
+    .result-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; font-weight: 600;
+      color: var(--muted); letter-spacing: 1px;
+    }
+    .result-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem; font-weight: 600;
+      padding: 0.1rem 0.4rem; border-radius: 3px;
+      border: 1px solid currentColor;
+      letter-spacing: 0.75px; text-transform: uppercase;
+    }
+    .result-tag.causal  { color: var(--blue); }
+    .result-tag.evt     { color: #be123c; }
+    .result-tag.fleet   { color: #16a34a; }
+    .result-tag.mech    { color: #7c3aed; }
+    .result-tag.anomaly { color: #0891b2; }
+    .result-metric {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem; font-weight: 700; color: var(--text);
+      display: block; letter-spacing: -0.5px;
+      margin-bottom: 0.5rem; line-height: 1;
+    }
+    .result-card h3 {
+      font-size: 0.875rem; margin-bottom: 0.5rem;
+      line-height: 1.35; color: var(--text-2);
+    }
+    .result-card p { font-size: 0.8125rem; color: var(--muted); line-height: 1.65; }
+    .impact-note {
+      background: #eff6ff; border-left: 2px solid var(--blue);
+      padding: 0.45rem 0.7rem; margin: 0.5rem 0 0.625rem;
+      font-size: 0.8rem; color: var(--text-2); line-height: 1.55;
+      border-radius: 0 4px 4px 0; font-weight: 500;
+    }
+
+    /* ── EXEC STRIP ── */
+    .exec-strip {
+      background: #eff6ff; border-bottom: 1px solid #bfdbfe;
+      padding: 1rem 2.5rem;
+    }
+    .exec-strip-inner {
+      max-width: 1120px; margin: 0 auto;
+      display: flex; gap: 0; align-items: stretch;
+    }
+    .exec-strip-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--blue); white-space: nowrap;
+      flex-shrink: 0; padding-right: 2rem; padding-top: 0.1rem;
+      border-right: 1px solid #bfdbfe; margin-right: 0;
+      display: flex; align-items: center;
+    }
+    .exec-bullets {
+      display: flex; flex: 1; flex-wrap: wrap;
+    }
+    .exec-bullet {
+      flex: 1; min-width: 200px;
+      padding: 0.25rem 1.75rem;
+      border-right: 1px solid #bfdbfe;
+      font-size: 0.8125rem; color: var(--text-2); line-height: 1.5;
+    }
+    .exec-bullet:last-child { border-right: none; }
+    .exec-bullet strong { color: var(--blue); font-weight: 600; }
+
+    /* ── IMPLICATIONS ── */
+    .impl-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+      gap: 1rem;
+    }
+    .impl-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.375rem;
+      transition: box-shadow 0.2s;
+    }
+    .impl-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+    .impl-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem; color: var(--blue);
+      text-transform: uppercase; letter-spacing: 1.75px;
+      margin-bottom: 0.5rem; font-weight: 600; display: block;
+    }
+    .impl-card h3 {
+      font-size: 0.875rem; margin-bottom: 0.4rem;
+      line-height: 1.3; color: var(--text-2);
+    }
+    .impl-card p { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── PLOTS ── */
+    .plots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+      gap: 1.25rem;
+    }
+    .plot-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; transition: box-shadow 0.2s;
+    }
+    .plot-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .plot-card.wide { grid-column: 1 / -1; }
+    .plot-card img { width: 100%; display: block; }
+    .plot-caption {
+      padding: 0.875rem 1.125rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-alt);
+    }
+    .plot-caption strong {
+      font-size: 0.8rem; display: block; margin-bottom: 0.2rem;
+      color: var(--text-2); font-weight: 600;
+    }
+    .plot-caption span { font-size: 0.77rem; color: var(--muted); line-height: 1.55; }
+
+    /* ── METHODS ── */
+    .methods-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+      gap: 0.875rem;
+    }
+    .method-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.25rem;
+    }
+    .method-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; font-weight: 600;
+      background: var(--mono-bg); color: #93c5fd;
+      padding: 0.175rem 0.475rem; border-radius: 4px;
+      letter-spacing: 1.25px; margin-bottom: 0.75rem;
+    }
+    .method-card h3 {
+      font-size: 0.875rem; margin-bottom: 0.3rem; color: var(--text-2);
+    }
+    .method-card p { font-size: 0.785rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── PIPELINE ── */
+    .pipeline {
+      display: flex; flex-wrap: wrap;
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; margin-bottom: 2rem;
+    }
+    .pipe-step {
+      flex: 1; min-width: 140px; padding: 1.125rem 0.875rem;
+      text-align: center; border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .pipe-step:last-child { border-right: none; }
+    .pipe-step::after {
+      content: '›';
+      position: absolute; right: -0.55rem; top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.9rem; color: var(--border-dark);
+      z-index: 1; pointer-events: none;
+    }
+    .pipe-step:last-child::after { display: none; }
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.58rem; font-weight: 600; color: var(--blue);
+      text-transform: uppercase; letter-spacing: 1.5px;
+    }
+    .step-name { font-size: 0.8rem; font-weight: 600; margin-top: 0.2rem; color: var(--text-2); }
+    .step-desc { font-size: 0.67rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--mono-bg); color: #475569;
+      padding: 2.5rem 2rem;
+      font-size: 0.8125rem; line-height: 1.7;
+    }
+    .footer-inner {
+      max-width: 1120px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr auto; gap: 3rem; align-items: start;
+    }
+    .footer-title {
+      font-size: 0.9rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem;
+    }
+    .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .footer-links a { color: #60a5fa; text-decoration: none; font-size: 0.8125rem; }
+    .footer-links a:hover { text-decoration: underline; }
+    .footer-meta {
+      font-size: 0.7rem; color: #334155; line-height: 1.7;
+    }
+    .footer-stats {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.675rem; color: #334155; line-height: 2;
+      text-align: right;
+    }
+    .footer-stats span { color: #475569; }
+
+    @media (max-width: 768px) {
+      .plots-grid { grid-template-columns: 1fr; }
+      .nav-section { display: none; }
+      .stats-bar { grid-template-columns: repeat(3, 1fr); }
+      .causal-block { grid-template-columns: 1fr; gap: 1.75rem; }
+      .footer-inner { grid-template-columns: 1fr; }
+      .footer-stats { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <span class="nav-brand">AV Safety &thinsp;·&thinsp; <em>Waymo Dataset v2</em></span>
+  <div class="nav-section">
+    <a href="#results">Results</a>
+    <a href="#implications">Implications</a>
+    <a href="#figures">Figures</a>
+    <a href="#methods">Methods</a>
+  </div>
+  <div class="nav-links">
+    <a href="https://github.com/sachininw/av-safety-evaluation" class="secondary" target="_blank">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Code
+    </a>
+    <a href="project_report.pdf" class="primary" target="_blank">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Report
+    </a>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<header class="hero">
+  <div class="hero-kicker">Causal Safety Evaluation &nbsp;·&nbsp; Waymo Open Perception Dataset v2</div>
+  <h1>Near-Miss Risk in Urban Autonomous Vehicle Fleets:<br/>A Causal Evaluation Framework</h1>
+  <p class="hero-subtitle">
+    Propensity score matching, extreme value theory, Empirical Bayes risk ranking,
+    and multi-method anomaly detection applied to 1,000 real Waymo driving segments.
+  </p>
+  <div class="hero-stats">
+    197,807 frames at 10 Hz
+    <span>·</span>
+    PSM RD +17.4 pp [+14.8, +20.0]
+    <span>·</span>
+    OR = 4.51 · E-value ≈ 3.7
+    <span>·</span>
+    1-in-10 TTC = 0.141 s [0.126, 0.158]
+  </div>
+  <div class="hero-buttons">
+    <a href="project_report.pdf" class="btn btn-light" target="_blank">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Full Report
+    </a>
+    <a href="https://github.com/sachininw/av-safety-evaluation" class="btn btn-ghost" target="_blank">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Source Code
+    </a>
+  </div>
+</header>
+
+<!-- ── STATS BAR ── -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-value">1,000</div>
+    <div class="stat-label">Segments</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">197,807</div>
+    <div class="stat-label">Frames at 10 Hz</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">6</div>
+    <div class="stat-label">Analytical Methods</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">14.7%</div>
+    <div class="stat-label">DD Near-Miss Rate</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">+17.4 pp</div>
+    <div class="stat-label">Causal RD (Dense Traffic)</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">0.141 s</div>
+    <div class="stat-label">1-in-10 Worst-Case TTC</div>
+  </div>
+</div>
+
+<!-- ── BOTTOM LINE STRIP ── -->
+<div class="exec-strip">
+  <div class="exec-strip-inner">
+    <div class="exec-strip-label">Bottom&nbsp;Line</div>
+    <div class="exec-bullets">
+      <div class="exec-bullet">
+        <strong>Density is the controllable risk lever.</strong>
+        Routing changes can cut near-miss probability by 17 percentage points without modifying any vehicle's driving behaviour.
+      </div>
+      <div class="exec-bullet">
+        <strong>Simulation has a coverage gap.</strong>
+        Worst-case approach distances (0.141 s) are below emergency braking range. Segments at this threshold are likely missing from current test suites.
+      </div>
+      <div class="exec-bullet">
+        <strong>The near-miss rate is 2.2× higher when stopped vehicles are included.</strong>
+        Combining vehicle-vehicle and vehicle-obstacle proximity into one rate conflates two distinct risk types and misdirects safety investment.
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── ABSTRACT ── -->
+<div class="section-outer" id="overview">
+  <div class="section-inner">
+    <div class="section-label">Project Abstract</div>
+    <h2>A Modular Safety Evaluation Framework for Urban AV Fleets</h2>
+    <p class="lead">
+      Built from first principles to answer three precise questions: what constitutes
+      a near-miss for a moving AV fleet; does traffic density causally increase collision risk;
+      and how do you quantify tail safety when dangerous events are, by definition, rare.
+    </p>
+
+    <div class="abstract-block">
+      <p><span class="abstract-label">Business context.</span>&nbsp; This project addresses three core questions in AV safety evaluation: <em>what constitutes a near-miss for a moving fleet; does traffic density causally increase collision risk; and how do you quantify tail safety when dangerous events are rare?</em> The findings are directly actionable for fleet routing, simulation test coverage, real-time monitoring design, and safety metric calibration. The central finding is that <strong>traffic density is the dominant, controllable risk factor</strong>: reducing how many vehicles share the same corridor eliminates most of the incremental risk, without requiring any change to individual vehicle behaviour or hardware. Two secondary findings have immediate operational impact: the worst recorded close-call approaches are below emergency braking distance, and combining vehicle-vehicle and vehicle-obstacle pair types into a single near-miss rate conflates two distinct risk types, inflating the reported rate by 2.2×.</p>
+      <p><span class="abstract-label">Background.</span>&nbsp; Surrogate safety metrics for autonomous vehicles require careful handling of mixed-mobility pair types, temporal autocorrelation within segments, and the rarity of extreme events. A 2D bounding-circle time-to-collision (TTC) metric distinguishes dynamic–dynamic (DD) from dynamic–static (DS) vehicle pairs. DD restricts analysis to pairs where both vehicles are moving (speed &gt; 0.5 m/s); DS pairs are reported separately to prevent constant-velocity extrapolation artefacts from inflating the fleet-wide rate.</p>
+      <p><span class="abstract-label">Methods.</span>&nbsp; Six analytical methods applied sequentially: (1) novel surrogate safety metric design (2D TTC, DD/DS decomposition, per-pair rate decomposition); (2) extreme value theory (GPD/POT on per-segment max(1/TTC)) for tail risk quantification; (3) causal estimation via propensity score matching (PSM) and inverse probability weighting (IPW) with E-value sensitivity analysis; (4) causal mediation analysis (NDE/NIE via product-of-coefficients); (5) Empirical Bayes fleet risk ranking (Beta-Binomial MLE); and (6) anomaly detection via Isolation Forest with Mahalanobis distance as a statistical baseline.</p>
+      <p><span class="abstract-label">Key results.</span>&nbsp; DD near-miss rate: <strong>14.7%</strong> of frames (DS: 32.3%, inflated 2.2× because DS pairs include vehicle-obstacle proximity at traffic lights, not vehicle-vehicle conflicts). Causal risk difference: <strong>+17.4 pp</strong> [+14.8, +20.0] (OR = 4.51, E-value ≈ 3.7, n = 94 k matched pairs, 997 segments); IPW confirms +20.3 pp; 78% of this effect is combinatorial, not behavioural. Tail risk: 1-in-10 worst-case TTC = <strong>0.141 s</strong> [0.126, 0.158], which is below emergency braking distance at 1g. Heading rate is the primary anomaly feature in Isolation Forest detection (2% contamination, 197,807 frames).</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── CENTRAL FINDING ── -->
+<div class="section-outer" id="causal">
+  <div class="section-inner">
+    <div class="section-label">Primary Result</div>
+    <h2>Higher Traffic Density Raises Fleet-Level Near-Miss Probability</h2>
+    <p class="lead">
+      Dense traffic is not just correlated with more near-misses; it <em>causes</em> them.
+      This distinction matters for decision-making: if the effect were purely correlational
+      (e.g. riskier roads also happen to be busier), fixing density would do nothing.
+      Because the effect is causal, fleet routing that reduces vehicle-pair density
+      directly and predictably reduces incident risk.
+    </p>
+
+    <div class="causal-block">
+      <div>
+        <h3>PSM Risk Difference: +17.4 pp &nbsp;(95% CI: +14.8 to +20.0)</h3>
+        <p>
+          Above-median vehicle count raises the probability of a dynamic–dynamic near-miss
+          (any pair with TTC &lt; 3 s in a given frame) by <strong>+17.4 percentage points</strong>
+          relative to below-median density, after 1:1 nearest-neighbour propensity score matching
+          on mean speed and mean acceleration (caliper = 0.2σ).
+          OR = 4.51; cluster-robust 95% CI [+14.8, +20.0 pp] over 997 independent segments;
+          design effect DEFF = 78.7 (naïve SEs are 8.9× too narrow due to r₁ = +0.82
+          within-segment autocorrelation). IPW provides independent confirmation:
+          RD = +20.3 pp [+19.4, +21.2].
+        </p>
+        <p>
+          <strong>Sensitivity to unmeasured confounding.</strong>
+          E-value ≈ 3.7 (VanderWeele &amp; Ding 2017, common-outcome corrected):
+          an unmeasured confounder would need to be associated with both density and
+          near-miss risk at ≥ 3.7× strength to fully explain the observed effect.
+        </p>
+        <p>
+          <strong>Mechanism is combinatorial, not behavioural.</strong>
+          Mediation attributes 78% of the total TTC effect to the Natural Direct Effect
+          (more vehicle pairs simultaneously entering collision geometry) and 22% to
+          spacing compression. The per-pair decomposition confirms: the treated
+          per-pair rate is <em>lower</em> in dense scenes (0.026% vs 0.064%, RR ≈ 0.40):
+          individual vehicles are not driving more aggressively; there are simply more
+          pairs exposed to risk.
+        </p>
+      </div>
+      <div class="causal-stats">
+        <div class="causal-stat-item">
+          <span class="causal-stat-value">+17.4 pp</span>
+          <span class="causal-stat-label">PSM RD &nbsp;·&nbsp; CI [+14.8, +20.0]</span>
+        </div>
+        <div class="causal-stat-item">
+          <span class="causal-stat-value">OR = 4.51</span>
+          <span class="causal-stat-label">Matched odds ratio</span>
+        </div>
+        <div class="causal-stat-item">
+          <span class="causal-stat-value">E ≈ 3.7</span>
+          <span class="causal-stat-label">E-value (common-outcome corrected)</span>
+        </div>
+        <div class="causal-stat-item">
+          <span class="causal-stat-value">−16.6 s</span>
+          <span class="causal-stat-label">ATE on TTC (continuous, cap 60 s)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── RESULTS ── -->
+<div class="section-outer alt" id="results">
+  <div class="section-inner">
+    <div class="section-label">Results</div>
+    <h2>Primary Findings</h2>
+    <p class="lead">Five findings spanning causal effect estimation, tail risk quantification, metric design, mechanism identification, and anomaly characterisation.</p>
+
+    <div class="results-grid">
+
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-num">R1</span>
+          <span class="result-tag causal">Causal Effect</span>
+        </div>
+        <span class="result-metric">+17.4 pp</span>
+        <h3>Higher Traffic Density Raises Fleet-Level Near-Miss Probability Through Exposure</h3>
+        <div class="impact-note">Fleet routing that caps co-located vehicle count can cut near-miss risk by up to 17 percentage points, without changing how any vehicle drives.</div>
+        <p>PSM RD +17.4 pp [+14.8, +20.0] (OR = 4.51, cluster-robust, 997 segments, DEFF = 78.7). IPW confirms independently: +20.3 pp [+19.4, +21.2]. E-value ≈ 3.7 bounds sensitivity to unmeasured confounders. Two-method convergence strengthens the causal claim.</p>
+      </div>
+
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-num">R2</span>
+          <span class="result-tag evt">Tail Risk</span>
+        </div>
+        <span class="result-metric">0.141 s</span>
+        <h3>Worst-Case TTC Falls Below Emergency Braking Distance at 1-in-10 Return Period</h3>
+        <div class="impact-note">Any simulation test suite that doesn't cover sub-0.141 s TTC scenarios has a gap in its safety case; these are the events that actually test emergency response limits.</div>
+        <p>GPD fitted to per-segment max(1/TTC) via POT (threshold u = 1/3 s⁻¹; ξ = 0.454, σ = 2.633; n = 548 exceedances). 1-in-10 TTC: 0.141 s [0.126, 0.158 s]; 1-in-50: 0.057 s. Validated: 106 empirical vs 100 expected below return level.</p>
+      </div>
+
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-num">R3</span>
+          <span class="result-tag fleet">Metric Design</span>
+        </div>
+        <span class="result-metric">14.7% DD · 32.3% DS</span>
+        <h3>Dynamic–Static Inclusion Inflates Near-Miss Rate by 2.2×</h3>
+        <div class="impact-note">A safety dashboard using the combined rate reports 32.3% where the physically correct DD rate is 14.7%; the 2.2× gap reflects constant-velocity extrapolation past stopped vehicles, not vehicle-vehicle conflict risk.</div>
+        <p>Constant-velocity extrapolation past legally-stopped vehicles drives the DS rate (32.3%) to 2.2× the physically correct DD rate (14.7%). Empirical Bayes fleet mean: 14.3% (Beta-Binomial shrinkage). DD is the operationally meaningful primary metric; DS must be reported separately.</p>
+      </div>
+
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-num">R4</span>
+          <span class="result-tag mech">Mechanism</span>
+        </div>
+        <span class="result-metric">NDE = 78%</span>
+        <h3>Risk Elevation Is Combinatorial: More Pairs, Not More Aggressive Drivers</h3>
+        <div class="impact-note">You cannot engineer out of this risk by retraining vehicles to drive more carefully. The fix is structural: fewer vehicles in the same place at the same time.</div>
+        <p>Mediation on continuous TTC: NDE = 78%, NIE = 22% (via mean nearest-neighbour distance; Sobel p &lt; 0.001). Per-pair decomposition: treated rate 0.026% vs control 0.064% (RR_per-pair ≈ 0.40). The RR sign reversal proves the effect is an order-statistic phenomenon, not a behavioural one.</p>
+      </div>
+
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-num">R5</span>
+          <span class="result-tag anomaly">Anomaly</span>
+        </div>
+        <span class="result-metric">Heading rate #1</span>
+        <h3>Heading Rate Is the Primary Anomaly Feature in Isolation Forest Detection</h3>
+        <div class="impact-note">Speed-based and proximity-based safety monitors are tracking the wrong signal. Heading rate fires earlier, before close proximity develops, shifting fleet safety from reactive to predictive.</div>
+        <p>Isolation Forest (2% contamination, 197,807 frames) ranks heading rate first, above speed, jerk, and proximity score. Validated through distributional separation between anomaly-flagged and normal frames: heading rate and jerk show the strongest separation. Heading rate fires before close proximity develops, making it applicable to real-time monitoring.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── IMPLICATIONS ── -->
+<div class="section-outer" id="implications">
+  <div class="section-inner">
+    <div class="section-label">Operational Implications</div>
+    <h2>What the Results Mean for Deployment</h2>
+    <p class="lead">
+      These are not just observations; they are decision inputs. Each finding changes a specific
+      operational choice: how routes are planned, what simulation must cover, which signals
+      get monitored in real time, and how safety performance is reported to stakeholders.
+    </p>
+
+    <div class="impl-grid">
+      <div class="impl-card">
+        <span class="impl-label">Fleet Routing</span>
+        <h3>Density Management Over Per-Vehicle Behaviour Change</h3>
+        <p>The +17.4 pp effect is 78% combinatorial. The highest-leverage operational intervention is constraining co-located vehicle count, not modifying individual driving policy. Fleet routing algorithms should explicitly minimise vehicle-pair exposure in high-density corridors.</p>
+      </div>
+      <div class="impl-card">
+        <span class="impl-label">Simulation Coverage</span>
+        <h3>Stress-Test Scenario Target: TTC ≤ 0.141 s</h3>
+        <p>The GPD return-level estimate provides a principled, data-driven target for simulation scenario coverage. Simulator must reliably reproduce scenarios at and beyond 0.141 s TTC (ξ = 0.454, GPD-validated) to credibly evaluate emergency response system performance.</p>
+      </div>
+      <div class="impl-card">
+        <span class="impl-label">Real-Time Monitoring</span>
+        <h3>Heading Rate as Early Warning Trigger</h3>
+        <p>Heading rate outranks speed, jerk, and proximity across three independent detection methods. A real-time heading-rate monitor would flag evasive manoeuvres and sudden direction changes earlier than existing proximity-based safety triggers.</p>
+      </div>
+      <div class="impl-card">
+        <span class="impl-label">Metric Design</span>
+        <h3>DD-Only TTC Separates Vehicle-Vehicle from Vehicle-Obstacle Proximity</h3>
+        <p>Including stopped-vehicle pairs inflates the reported near-miss rate from 14.7% to 32.3%. Fleet safety dashboards must report DD and DS rates separately; the DS metric captures vehicle-obstacle proximity at stops and intersections, not vehicle-vehicle collision risk.</p>
+      </div>
+      <div class="impl-card">
+        <span class="impl-label">Operational Prioritisation</span>
+        <h3>Bayesian Segment Scores for Human Review Queuing</h3>
+        <p>Empirical Bayes posterior rates (Beta-Binomial MLE, fleet hyperparameters α̂, β̂) provide volume-adjusted, calibrated segment risk scores. These serve directly as a review queue, preventing overweighting of clips with limited observation time.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── FIGURES ── -->
+<div class="section-outer alt" id="figures">
+  <div class="section-inner">
+    <div class="section-label">Diagnostic Figures</div>
+    <h2>Results Gallery</h2>
+    <p class="lead">All figures generated from the full 1,000-segment corpus via the reproducible analysis pipeline.</p>
+
+    <div class="plots-grid">
+
+      <div class="plot-card wide">
+        <img src="plots/causal_ttc_by_density.png" alt="Near-miss risk by traffic density" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 1: DD TTC Distribution: High vs Low Traffic Density</strong>
+          <span>Raw distributions of minimum dynamic-dynamic TTC for above-median (high) and below-median (low) vehicle count segments. The distributional shift motivates the causal analysis: PSM RD +17.4 pp [+14.8, +20.0] (OR = 4.51); IPW confirms +20.3 pp.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/psm_balance.png" alt="PSM covariate balance" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 2: PSM Covariate Balance (Standardised Mean Differences)</strong>
+          <span>Pre- and post-matching SMD for speed and acceleration. Post-matching SMD &lt; 0.1
+            confirms sufficient balance to support a causal interpretation of the RD estimate.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/safety_heatmap.png" alt="Near-miss heatmap across fleet" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 3: Near-Miss Distribution Across Fleet (Segment × Time Heatmap)</strong>
+          <span>Each row = one ~20 s segment; colour encodes DD TTC tier (green &gt; 3 s, yellow 1–3 s, red &lt; 1 s).
+            Near-miss events are distributed across the fleet, not concentrated in isolated incidents.</span>
+        </div>
+      </div>
+
+      <div class="plot-card wide">
+        <img src="plots/trajectory_visualisation.png" alt="Vehicle trajectory and TTC profile" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 4: Vehicle Paths and Per-Frame TTC Profile in a Representative Scenario</strong>
+          <span><em>Left:</em> bird's-eye vehicle paths coloured by instantaneous TTC tier.
+            <em>Right:</em> minimum DD TTC over time with near-miss threshold annotated.
+            Illustrates how a fleet-level event decomposes into the underlying pair-level geometry.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/evt_gev_20s.png" alt="EVT return-level analysis" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 5: Extreme Value Analysis: GPD/POT on Per-Segment max(1/TTC)</strong>
+          <span>GPD probability plot (left) and return-level curve with 95% bootstrap CIs (right).
+            ξ = 0.454 (Pareto domain). 1-in-10 TTC: 0.141 s [0.126, 0.158].
+            Validated: 106 empirical vs 100 expected below return level.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/bayesian_risk_ranking.png" alt="Fleet risk distribution histogram" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 6: Fleet Risk Profile — 1,000 Segments Ranked by DD Near-Miss Rate</strong>
+          <span>Each dot is one segment, sorted from lowest to highest DD near-miss rate.
+            Blue = below fleet mean (14.7%); gold = 1–2× fleet mean; red = high-risk (&gt; 2× fleet mean, 187 segments).
+            The sharp uptick at the right reveals a concentrated tail of genuinely high-risk segments.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/anomaly_detection.png" alt="Anomaly detection feature importance" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 7: Anomaly Detection Feature Importance (Isolation Forest)</strong>
+          <span>Feature importance across 197,807 frames at 2% contamination rate.
+            Heading rate ranks first, ahead of speed, acceleration, and proximity score.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/anomaly_validation.png" alt="Anomaly detector validation" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 8: Anomaly Detector Validation (Normal vs Flagged Frame Distributions)</strong>
+          <span>Distributional separation between anomaly-flagged and normal frames for each kinematic feature.
+            Heading rate and jerk show the strongest separation, confirming them as the primary discriminating features.</span>
+        </div>
+      </div>
+
+      <div class="plot-card">
+        <img src="plots/traffic_flow_diagram.png" alt="Traffic flow relationships" loading="lazy" />
+        <div class="plot-caption">
+          <strong>Figure 9: Speed–Density and Flow–Density Relationships</strong>
+          <span>Macroscopic traffic flow fundamentals across all 1,000 segments.
+            Follows expected Greenshields-type patterns, confirming the dataset spans
+            representative density regimes for urban AV evaluation.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── METHODS ── -->
+<div class="section-outer" id="methods">
+  <div class="section-inner">
+    <div class="section-label">Methodology</div>
+    <h2>Analytical Framework</h2>
+    <p class="lead">Six sequential analytical steps, each addressing a distinct question about fleet-level safety.</p>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="step-num">Step 1</div>
+        <div class="step-name">Data Processing</div>
+        <div class="step-desc">775 MB Parquet · DuckDB</div>
+      </div>
+      <div class="pipe-step">
+        <div class="step-num">Step 2</div>
+        <div class="step-name">Safety Metrics</div>
+        <div class="step-desc">2D TTC · DRAC · Jerk</div>
+      </div>
+      <div class="pipe-step">
+        <div class="step-num">Step 3</div>
+        <div class="step-name">Tail Analysis</div>
+        <div class="step-desc">EVT · GPD/POT</div>
+      </div>
+      <div class="pipe-step">
+        <div class="step-num">Step 4</div>
+        <div class="step-name">Causal Inference</div>
+        <div class="step-desc">PSM · IPW · Mediation</div>
+      </div>
+      <div class="pipe-step">
+        <div class="step-num">Step 5</div>
+        <div class="step-name">Fleet Ranking</div>
+        <div class="step-desc">Empirical Bayes · Beta-Bin</div>
+      </div>
+      <div class="pipe-step">
+        <div class="step-num">Step 6</div>
+        <div class="step-name">Anomaly Detection</div>
+        <div class="step-desc">Isolation Forest · Mahalanobis</div>
+      </div>
+    </div>
+
+    <div class="methods-grid">
+      <div class="method-card">
+        <span class="method-badge">TTC</span>
+        <h3>Surrogate Safety Metric Design</h3>
+        <p>Per-pair TTC via 2D bounding-circle quadratic formula with discriminant check.
+           Primary metric: binary near_miss_dd (any DD pair with TTC &lt; 3 s per frame).
+           DD restricted to speed &gt; 0.5 m/s. DS pairs reported separately to avoid
+           constant-velocity extrapolation artefacts at traffic lights and stop signs.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-badge">EVT</span>
+        <h3>Extreme Value Theory (GPD/POT)</h3>
+        <p>Generalised Pareto Distribution fitted to per-segment max(1/TTC) via peaks-over-threshold
+           (u = 1/3 s⁻¹). Modelling 1/TTC (not −TTC) avoids the bounded-above domain
+           violation that forces the Weibull regime. ξ = 0.454 confirms Pareto heavy tail.
+           2,000-sample bootstrap CIs reported.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-badge">PSM</span>
+        <h3>Causal Estimation (PSM + IPW)</h3>
+        <p>Logistic propensity model on speed + acceleration; 1:1 NN matching with 0.2σ caliper.
+           Cluster-robust OLS for risk difference; DEFF = 78.7 quantified explicitly.
+           IPW with sandwich SEs provides independent estimation.
+           E-value (VanderWeele &amp; Ding 2017, common-outcome corrected) bounds confounding sensitivity.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-badge">Med</span>
+        <h3>Causal Mediation Analysis</h3>
+        <p>Natural Direct and Indirect Effects estimated via product-of-coefficients with Sobel SEs.
+           Mediator: mean nearest-neighbour distance. NDE = 78% / NIE = 22%.
+           Per-pair decomposition (RR_per-pair ≈ 0.40) independently validates
+           the combinatorial interpretation.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-badge">EB</span>
+        <h3>Empirical Bayes Risk Ranking</h3>
+        <p>Beta-Binomial MLE estimates fleet hyperparameters (α̂, β̂) from the marginal likelihood.
+           Posterior means are shrunk toward fleet mean (14.3%), correcting the
+           small-sample overconfidence problem inherent in raw segment-level near-miss rates.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-badge">AD</span>
+        <h3>Multi-Method Anomaly Detection</h3>
+        <p>Isolation Forest (ensemble, 2% contamination, 197,807 frames) with Mahalanobis distance
+           as a statistical baseline check. Heading rate ranks as the primary anomaly feature,
+           ahead of speed, jerk, and proximity score; validated through distributional separation
+           between anomaly-flagged and normal frames (see Figure 8).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-title">AV Safety Evaluation &nbsp;·&nbsp; Waymo Open Perception Dataset v2</div>
+      <div class="footer-links">
+        <a href="project_report.pdf" target="_blank">Technical Report (PDF)</a>
+        <a href="https://github.com/sachininw/av-safety-evaluation" target="_blank">Source Code (GitHub)</a>
+        <a href="https://waymo.com/open/" target="_blank">Waymo Open Dataset</a>
+      </div>
+      <div class="footer-meta">
+        Data: Waymo Open Perception Dataset v2 &nbsp;·&nbsp;
+        Stack: Python · DuckDB · NumPy · scikit-learn · statsmodels · scipy.stats
+        <br/>
+        June 2026
+      </div>
+    </div>
+    <div class="footer-stats">
+      <div>PSM RD: <span>+17.4 pp [+14.8, +20.0]</span></div>
+      <div>OR = 4.51 &nbsp;·&nbsp; E-value ≈ 3.7</div>
+      <div>IPW: <span>+20.3 pp [+19.4, +21.2]</span></div>
+      <div>EVT ξ = 0.454 &nbsp;·&nbsp; TTC₁₀ = <span>0.141 s</span></div>
+      <div>DEFF = 78.7 &nbsp;·&nbsp; r₁ = +0.82</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
